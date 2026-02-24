@@ -22,13 +22,18 @@ if "%ERRORLEVEL%"=="0" (
     echo Please save your work and CLOSE Word to continue.
     echo.
     pause
-    goto :1
 )
 
-:1
-:: 2. Get the latest version number from GitHub
+:: 2. Get the latest version number from GitHub (-k skips revocation check)
 echo Checking for updates...
-for /f "delims=" %%a in ('curl -s -L %VERSION_URL%') do set "LATEST_VER=%%a"
+for /f "delims=" %%a in ('curl -k -s -L %VERSION_URL%') do set "LATEST_VER=%%a"
+
+:: If LATEST_VER is still empty, the connection failed
+if "%LATEST_VER%"=="" (
+    echo [ERROR] Could not connect to GitHub to check version.
+    pause
+    exit
+)
 
 :: 3. Check what version is currently installed
 if exist "%LOCAL_VER_FILE%" (
@@ -56,19 +61,18 @@ echo [NEW] Downloading Hebrew Tools v%LATEST_VER%...
 :: 5. Create Startup folder if missing
 if not exist "%TARGET_DIR%" mkdir "%TARGET_DIR%"
 
-:: 6. Download the file
-curl -L -o "%TARGET_DIR%\%FILE_NAME%" "%DOTM_URL%"
+:: 6. Download the file (-k added here too)
+curl -k -L -o "%TARGET_DIR%\%FILE_NAME%" "%DOTM_URL%"
 
 if %errorlevel% equ 0 (
     echo %LATEST_VER% > "%LOCAL_VER_FILE%"
     echo.
     echo [SUCCESS] Hebrew Tools has been installed/updated!
-    echo Location: %TARGET_DIR%
     echo.
     echo You can now open Microsoft Word.
 ) else (
     echo.
-    echo [ERROR] Download failed. Check your internet connection.
+    echo [ERROR] Download failed. 
 )
 
 echo ==========================================
