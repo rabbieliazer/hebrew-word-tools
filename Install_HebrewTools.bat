@@ -1,13 +1,15 @@
 @echo off
 setlocal enabledelayedexpansion
-title Hebrew Tools - Smart Update & Installer
+title Hebrew Tools Installer
 
 :: --- SETTINGS ---
 set "DOTM_URL=https://github.com/rabbieliazer/hebrew-word-tools/raw/refs/heads/main/HebrewTools.dotm"
 set "VERSION_URL=https://github.com/rabbieliazer/hebrew-word-tools/raw/refs/heads/main/version.txt"
 set "TARGET_DIR=%APPDATA%\Microsoft\Word\STARTUP"
+set "INTERNAL_DIR=%APPDATA%\Microsoft\Word"
 set "FILE_NAME=HebrewTools.dotm"
-set "LOCAL_VER_FILE=%TARGET_DIR%\ht_version.txt"
+set "LOCAL_VER_FILE=%INTERNAL_DIR%\ht_version.txt"
+set "PERM_BAT=%INTERNAL_DIR%\update_script.bat"
 :: ----------------
 
 echo ==========================================
@@ -15,65 +17,48 @@ echo       HEBREW TOOLS - LIVE INSTALLER
 echo ==========================================
 echo.
 
-:: 1. Check if Word is running
+:: 1. Save copy for the Word "Update" button
+copy /y "%~f0" "%PERM_BAT%" >nul
+
+:: 2. Check Word
 tasklist /FI "IMAGENAME eq winword.exe" 2>NUL | find /I /N "winword.exe">NUL
 if "%ERRORLEVEL%"=="0" (
-    echo [WARNING] Microsoft Word is currently running.
-    echo Please save your work and CLOSE Word to continue.
-    echo.
+    echo [WARNING] Microsoft Word is open.
+    echo Please CLOSE Word now to finish.
     pause
 )
 
-:: 2. Get the latest version number from GitHub (-k skips revocation check)
-echo Checking for updates...
+:: 3. Check Version
+echo Connecting to GitHub...
 for /f "delims=" %%a in ('curl -k -s -L %VERSION_URL%') do set "LATEST_VER=%%a"
+if "%LATEST_VER%"=="" (echo Error connecting to GitHub. && pause && exit)
 
-:: If LATEST_VER is still empty, the connection failed
-if "%LATEST_VER%"=="" (
-    echo [ERROR] Could not connect to GitHub to check version.
-    pause
-    exit
-)
-
-:: 3. Check what version is currently installed
-if exist "%LOCAL_VER_FILE%" (
-    set /p CURRENT_VER=<"%LOCAL_VER_FILE%"
-) else (
-    set "CURRENT_VER=0"
-)
+if exist "%LOCAL_VER_FILE%" (set /p CURRENT_VER=<"%LOCAL_VER_FILE%") else (set "CURRENT_VER=0")
 
 echo Current Version: %CURRENT_VER%
 echo Latest Version:  %LATEST_VER%
 
-:: 4. Comparison Logic
 if "%LATEST_VER%"=="%CURRENT_VER%" (
     if exist "%TARGET_DIR%\%FILE_NAME%" (
         echo.
-        echo [INFO] You already have the latest version.
-        timeout /t 5
+        echo [INFO] You are up to date.
+        timeout /t 3
         exit
     )
 )
 
-echo.
-echo [NEW] Downloading Hebrew Tools v%LATEST_VER%...
-
-:: 5. Create Startup folder if missing
+:: 4. Install
+echo Downloading Hebrew Tools v%LATEST_VER%...
 if not exist "%TARGET_DIR%" mkdir "%TARGET_DIR%"
-
-:: 6. Download the file (-k added here too)
 curl -k -L -o "%TARGET_DIR%\%FILE_NAME%" "%DOTM_URL%"
 
 if %errorlevel% equ 0 (
+    powershell -command "Unblock-File -Path '%TARGET_DIR%\%FILE_NAME%'"
     echo %LATEST_VER% > "%LOCAL_VER_FILE%"
     echo.
-    echo [SUCCESS] Hebrew Tools has been installed/updated!
-    echo.
-    echo You can now open Microsoft Word.
+    echo [SUCCESS] Install Complete! Restart Word.
 ) else (
     echo.
-    echo [ERROR] Download failed. 
+    echo [ERROR] Download failed.
 )
-
-echo ==========================================
 pause
