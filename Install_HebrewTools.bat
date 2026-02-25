@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 title Tosh Developers - Hebrew Tools Installer
 
-:: --- CONFIGURATION (CORRECTED RAW LINKS) ---
+:: --- CONFIGURATION (UPDATED TO RAW LINKS) ---
 set "REPO_URL=https://raw.githubusercontent.com/rabbieliazer/hebrew-word-tools/main"
 set "DOTM_NAME=HebrewTools.dotm"
 set "STARTUP_DIR=%APPDATA%\Microsoft\Word\STARTUP"
@@ -22,14 +22,16 @@ if "%ERRORLEVEL%"=="0" (
 )
 
 :: 2. GET LATEST VERSION FROM GITHUB
-echo Checking for updates at %REPO_URL%/version.txt...
+echo Checking for updates...
+:: We use -L to follow redirects and -k to skip SSL certificate issues if they occur
 for /f "delims=" %%a in ('curl -s -L -k %REPO_URL%/version.txt') do set "LATEST_VER=%%a"
 
-:: Clean up any potential hidden characters
+:: Remove any potential trailing spaces or hidden characters
 set "LATEST_VER=%LATEST_VER: =%"
 
 if "%LATEST_VER%"=="" (
-    echo [ERROR] Could not connect to GitHub or file is empty.
+    echo [ERROR] Could not fetch version information. 
+    echo Please check your internet or the GitHub repository status.
     pause
     exit
 )
@@ -53,10 +55,10 @@ echo Downloading %DOTM_NAME%...
 
 if not exist "%STARTUP_DIR%" mkdir "%STARTUP_DIR%"
 
-:: Using -L to follow redirects and -k for SSL compatibility
-curl -k -L -o "%STARTUP_DIR%\%DOTM_NAME%" "%REPO_URL%/%DOTM_NAME%"
+curl -s -L -k -o "%STARTUP_DIR%\%DOTM_NAME%" "%REPO_URL%/%DOTM_NAME%"
 
 if %errorlevel% equ 0 (
+    :: This removes the "Security Risk" block from Windows
     powershell -command "Unblock-File -Path '%STARTUP_DIR%\%DOTM_NAME%'"
     echo %LATEST_VER% > "%VERSION_FILE%"
     echo.
