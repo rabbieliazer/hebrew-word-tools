@@ -1,4 +1,4 @@
-name: Sync Version from DOTM
+name: Sync Version from Properties
 
 on:
   push:
@@ -14,23 +14,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Extract and Clean Version
+      - name: Install Metadata Tool
+        run: sudo apt-get install -y libimage-exiftool-perl
+
+      - name: Extract Version from Comments
         id: extract
         run: |
-          # 1. Extract the VBA project binary
-          unzip -p HebrewTools.dotm word/vbaProject.bin > vbaProject.bin || exit 1
-          
-          # 2. Find ToolVer, then use 'tr' to keep only numbers and dots
-          # We look for the string ToolVer, then take the next 15 characters, 
-          # then strip everything that isn't a digit or a dot.
-          VERSION=$(strings vbaProject.bin | grep "ToolVer" | head -n 1 | grep -oE "[0-9]+\.[0-9]+" | head -n 1)
+          # This reads the 'Comments' field you just filled in Word
+          VERSION=$(exiftool -Comments -s3 HebrewTools.dotm | tr -d '[:space:]')
           
           if [ -z "$VERSION" ]; then
-            echo "ERROR: Version number (0.0) not found in binary."
+            echo "ERROR: Version number not found in Word Comments property."
             exit 1
           fi
           
-          echo "Final Cleaned Version: $VERSION"
+          echo "Extracted Version: $VERSION"
           echo "$VERSION" > version.txt
           echo "NEW_VERSION=$VERSION" >> $GITHUB_ENV
 
