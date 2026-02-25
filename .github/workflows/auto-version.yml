@@ -1,4 +1,4 @@
-name: Sync Version from Properties
+name: Auto Increment Version
 
 on:
   push:
@@ -6,35 +6,40 @@ on:
       - 'HebrewTools.dotm'
 
 jobs:
-  sync-version:
+  update-version:
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Install Metadata Tool
-        run: sudo apt-get install -y libimage-exiftool-perl
-
-      - name: Extract Version from Comments
-        id: extract
+      - name: Calculate Next Version
+        id: calc
         run: |
-          # This reads the 'Comments' field you just filled in Word
-          VERSION=$(exiftool -Comments -s3 HebrewTools.dotm | tr -d '[:space:]')
-          
-          if [ -z "$VERSION" ]; then
-            echo "ERROR: Version number not found in Word Comments property."
-            exit 1
+          # 1. Read the current version from version.txt, default to 4.5 if it doesn't exist
+          if [ -f version.txt ]; then
+            OLD_VER=$(cat version.txt)
+          else
+            OLD_VER="4.5"
           fi
+
+          # 2. Use python to add 0.1 (bash handles decimals poorly)
+          NEW_VER=$(python3 -c "print(round($OLD_VER + 0.1, 1))")
           
-          echo "Extracted Version: $VERSION"
-          echo "$VERSION" > version.txt
-          echo "NEW_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Current: $OLD_VER"
+          echo "Next: $NEW_VER"
+          
+          # 3. Save the new version
+          echo "$NEW_VER" > version.txt
+          echo "NEW_VERSION=$NEW_VER" >> $GITHUB_ENV
 
       - name: Commit and Push
         run: |
           git config --global user.name "Tosh Developers Bot"
           git config --global user.email "actions@github.com"
           git add version.txt
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-sync version.txt to v${{ env.NEW_VERSION }}" && git push)
+          git commit -m "Auto-increment version to ${{ env.NEW_VERSION }}"
+          git push
