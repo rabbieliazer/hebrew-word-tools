@@ -1,0 +1,40 @@
+name: Sync Version from DOTM
+
+on:
+  push:
+    paths:
+      - 'HebrewTools.dotm'
+
+jobs:
+  sync-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Extract Version from VBA
+        id: extract_vba
+        run: |
+          # 1. Unzip the dotm (quietly) to a temp folder
+          unzip -q HebrewTools.dotm -d temp_vba
+          
+          # 2. Search for the ToolVer string in the binary project file
+          # We use 'strings' to find text in the binary and 'grep' to find the line
+          EXTRACTED_VER=$(strings temp_vba/word/vbaProject.bin | grep -oP 'ToolVer\s*As\s*String\s*=\s*"\K[^"]+')
+          
+          if [ -z "$EXTRACTED_VER" ]; then
+            echo "Could not find version in VBA! Defaulting to 1.0"
+            EXTRACTED_VER="1.0"
+          fi
+          
+          echo "Found Version: $EXTRACTED_VER"
+          echo $EXTRACTED_VER > version.txt
+          echo "NEW_VERSION=$EXTRACTED_VER" >> $GITHUB_ENV
+
+      - name: Commit and Push
+        run: |
+          git config --global user.name "Tosh Developers Bot"
+          git config --global user.email "actions@github.com"
+          git add version.txt
+          # Only commit if version.txt actually changed
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Sync version.txt to v${{ env.NEW_VERSION }}" && git push)
